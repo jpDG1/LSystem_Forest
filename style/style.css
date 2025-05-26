@@ -1,5 +1,32 @@
-body {
-    background: #eef;
+button {
+    padding: 5px 10px;
+    margin: 5px;
+    border: none;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+#settings-panel {
+    position: absolute;
+    top: 50px;
+    left: 200px;
+    z-index: 1000;
+    background: white;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
     font-family: Arial, sans-serif;
-    padding: 20px;
+    font-size: 14px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    display: none;
+}
+.fire-popup {
+    pointer-events: none;
+    z-index: 1000;
 }
