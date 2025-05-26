@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Forest Fire Simulation</title>
-    <link rel="stylesheet" href="./style/style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         body, html {
@@ -12,16 +11,78 @@
             height: 100%;
             overflow: hidden;
         }
+
         #map {
             width: 100%;
             height: 100%;
         }
+
+        #settings-panel {
+            position: absolute;
+            top: 50px;
+            left: 200px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+
+        #settings-panel label {
+            display: block;
+            margin-top: 5px;
+        }
+
+        #settings-panel input,
+        #settings-panel select {
+            width: 80px;
+            margin-top: 2px;
+        }
+
+        #settings-panel button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+
+        #settings-panel button:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
+
 <div id="map"></div>
+
+<div id="settings-panel">
+    <strong>Simulation Settings</strong><br>
+    <label>🌡 Temperature (°C):</label>
+    <input id="inp-temp" type="number" value="30" min="0" max="100"><br>
+
+    <label>💧 Humidity (%):</label>
+    <input id="inp-hum" type="number" value="50" min="0" max="100"><br>
+
+    <label>💨 Wind Direction:</label>
+    <select id="inp-windDir">
+        <option value="N">N</option>
+        <option value="E" selected>E</option>
+        <option value="S">S</option>
+        <option value="W">W</option>
+    </select><br>
+
+    <button id="apply-settings">Apply</button>
+</div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="./dist/bundle.js"></script>
+
 </body>
 </html>

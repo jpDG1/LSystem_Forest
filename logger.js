@@ -1,44 +1,78 @@
 const express = require("express");
 const readline = require("readline");
+const fs = require("fs");
+const axios = require("axios");
+const chalk = require("chalk").default;
+
 
 const app = express();
 const port = 3001;
 let currentFire = null;
 let waitingForResponse = false;
+let lastLog = "";
 
-// CORS та обробка JSON
+const logToFile = (text) => {
+    const now = new Date().toLocaleTimeString("uk-UA");
+    const line = `[${now}] ${text}\n`;
+    fs.appendFile("fire-log.txt", line, (err) => {
+        if (err) console.error("❗ Failed to write to file", err);
+    });
+};
+
+const styledLog = (text) => {
+    if (text === lastLog) return;
+    lastLog = text;
+
+    const time = new Date().toLocaleTimeString("uk-UA");
+    const prefix = chalk.hex("#888888")(`[${time}]`);
+
+    if (text.includes("🔥")) console.log(prefix, chalk.red(text));
+    else if (text.includes("✅")) console.log(prefix, chalk.green(text));
+    else if (text.includes("❌")) console.log(prefix, chalk.yellow(text));
+    else if (text.includes("🚒")) console.log(prefix, chalk.blue(text));
+    else if (text.includes("⚠") || text.includes("⌛")) console.log(prefix, chalk.keyword('orange')(text));
+    else console.log(prefix, text);
+};
+
+
+
+// Allow CORS
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") return res.sendStatus(200);
     next();
 });
+
 app.use(express.json());
 
-// Маршрут для звичайних логів із фронтенда
-app.post('/log', (req, res) => {
+// REST логування
+app.post("/log", (req, res) => {
     const { message } = req.body;
     if (message) {
-        const now = new Date().toLocaleTimeString('uk-UA');
-        console.log(`[${now}] ${message}`);
+        styledLog(message);
+        logToFile(message);
     }
     res.sendStatus(200);
 });
 
-// Маршрут для повідомлення про пожежу із фронтенда
-app.post('/request-fire-response', (req, res) => {
+// 🔥 Fire confirmation request
+app.post("/request-fire-response", (req, res) => {
     const { i, j } = req.body;
     if (waitingForResponse) return res.sendStatus(200);
 
     currentFire = { i, j };
     waitingForResponse = true;
-    console.log(`🔥 Fire at [${i}, ${j}]. Call fire truck? (Y/N):`);
+    const text = `🔥 Fire at [${i}, ${j}] — awaiting response (Y/N)`;
+    styledLog(text);
+    logToFile(text);
 
-    // Якщо за 10с немає відповіді — відкинути
     setTimeout(() => {
         if (waitingForResponse) {
-            console.log(`⌛ No response. Fire response skipped.`);
+            const msg = `⌛ No response for fire at [${currentFire.i}, ${currentFire.j}]`;
+            styledLog(msg);
+            logToFile(msg);
             waitingForResponse = false;
             currentFire = null;
         }
@@ -47,7 +81,27 @@ app.post('/request-fire-response', (req, res) => {
     res.sendStatus(200);
 });
 
-// CLI-інтерфейс для відповіді користувача
+// User response
+app.post("/fire-response", (req, res) => {
+    const { i, j, response } = req.body;
+    let msg = "";
+
+    if (response === "Y") {
+        msg = `🚒 Firetruck dispatched to [${i},${j}] ✅`;
+    } else if (response === "N") {
+        msg = `❌ No action taken for fire at [${i},${j}]`;
+    } else {
+        msg = `❓ Unknown response for fire at [${i},${j}]`;
+    }
+
+    styledLog(msg);
+    logToFile(msg);
+    waitingForResponse = false;
+    currentFire = null;
+    res.sendStatus(200);
+});
+
+// CLI fire confirmation
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -55,22 +109,19 @@ const rl = readline.createInterface({
 
 rl.on("line", (input) => {
     if (!waitingForResponse || !currentFire) return;
+
     const answer = input.trim().toUpperCase();
     const { i, j } = currentFire;
 
-    if (answer === "Y") {
-        console.log(`🚒 Fire extinguished at [${i}, ${j}]`);
-    } else if (answer === "N") {
-        console.log(`❌ No response to fire at [${i}, ${j}]`);
-    } else {
-        console.log("❗ Invalid input. Please enter Y or N.");
-        return;
+    if (answer === "Y" || answer === "N") {
+        axios.post("http://localhost:3001/fire-response", { i, j, response: answer })
+            .catch(() => {
+                styledLog("❗ Failed to send fire response to local handler.");
+            });
     }
-
-    waitingForResponse = false;
-    currentFire = null;
 });
 
 app.listen(port, () => {
-    console.log(`📝 Logger running on http://localhost:${port}`);
+    console.clear();
+    console.table([{ Port: port, Status: "Logger running", Logfile: "fire-log.txt" }]);
 });

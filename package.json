@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "webpack serve --open",
-       "start:logger": "node logger.js",
+    "start:logger": "node logger.js",
     "simulate": "node start-simulation.js"
   },
   "keywords": [],
@@ -12,20 +12,22 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "leaflet": "^1.9.4",
-    "express": "^4.18.2",
-    "node-fetch": "^3.3.2",
+    "axios": "^1.9.0",
+    "chalk": "^5.4.1",
     "cors": "^2.8.5",
-    "open": "^10.1.0"
+    "express": "^4.18.2",
+    "leaflet": "^1.9.4",
+    "open": "^10.1.0",
+    "punycode": "^2.3.1"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.17",
-    "webpack": "^5.98.0",
-    "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.1",
+    "nodemon": "^3.1.9",
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
-    "nodemon": "^3.1.9"
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.1"
   }
 }
