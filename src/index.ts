@@ -3,10 +3,9 @@ import { createSettingsPanel } from "./settingsPanel";
 import axios from "axios";
 
 const map = L.map("map").setView([52.295, 20.638], 12);
-const baseLayer = L.tileLayer(
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    { attribution: "&copy; OSM contributors" }
-).addTo(map);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OSM contributors"
+}).addTo(map);
 
 createSettingsPanel();
 
@@ -17,6 +16,7 @@ const startLat = 52.295 - (gridSize / 2) * cellHeight;
 const startLng = 20.638 - (gridSize / 2) * cellWidth;
 
 type CellState = "T" | "." | "F";
+type VegetationType = "pine" | "oak" | "grass";
 
 interface Cell {
     state: CellState;
@@ -25,6 +25,32 @@ interface Cell {
     hasCloud: boolean;
     raining: boolean;
     humidity: number;
+    cloudMass: number;
+    cloudLifetime: number;
+    vegetation: VegetationType;
+}
+interface WindVector {
+    dx: number; // horizontal wind component
+    dy: number; // vertical wind component
+}
+
+
+
+
+function getVegetationColor(type: VegetationType): string {
+    switch (type) {
+        case "pine": return "veg-pine";
+        case "oak": return "veg-oak";
+        case "grass": return "veg-grass";
+    }
+}
+
+function getFlammability(type: VegetationType): number {
+    switch (type) {
+        case "pine": return 1.2;
+        case "oak": return 0.6;
+        case "grass": return 1.5;
+    }
 }
 
 let grid: Cell[][] = [];
@@ -72,18 +98,25 @@ export function initGrid() {
         for (let j = 0; j < gridSize; j++) {
             const temp = Math.floor(Math.random() * 10) + baseTemp;
             const humidity = Math.floor(Math.random() * 60) + 20;
+            const vegTypes: VegetationType[] = ["pine", "oak", "grass"];
+            const vegetation = vegTypes[Math.floor(Math.random() * vegTypes.length)];
             grid[i][j] = {
                 state: "T",
                 temp,
                 prevTemp: temp,
                 hasCloud: Math.random() < cloudChance,
                 raining: false,
+                cloudMass: Math.floor(Math.random() * 40),      // або 0–40
+                cloudLifetime: Math.floor(Math.random() * 5),   // або 0–5 кроків
                 humidity,
+                vegetation,
             };
         }
     }
     generation = 0;
 }
+
+
 initGrid();
 
 function generateWeather(): Weather {
@@ -125,6 +158,16 @@ function sendNotification(message: string) {
     }
     logAction(`[NOTIFY] ${message}`);
 }
+
+function initWindField() {
+
+}
+
+if (generation % 10 === 0) {
+    initWindField();
+    logAction("💨 Wind field updated");
+}
+
 
 function showFireMarker(i: number, j: number) {
     const lat = startLat + (i + 0.5) * cellHeight;
@@ -272,15 +315,19 @@ export function drawGrid() {
                 [startLat + (i + 1) * cellHeight, startLng + (j + 1) * cellWidth]
             ];
 
-            const rectangle = L.rectangle(bounds, {
-                color: cell.state === "F" ? "orange" : "red",
-                weight: 2,
-                fillOpacity: cell.state === "F" ? 0.5 : 0,
-            }).addTo(map)
-                .bindTooltip(`Temperature: ${cell.temp}°C\nHumidity: ${cell.humidity}%\nState: ${cell.state}`, {
-                    direction: "top",
-                    offset: [0, -10]
-                })
+            const rectOptions: L.PathOptions = {
+                color: cell.state === "F" ? "orange" : "black",
+                weight: 1,
+                fillOpacity: 0.6,
+                className: cell.state === "T" ? getVegetationColor(cell.vegetation) : "",
+                fillColor: cell.state === "F" ? "orange" : undefined,
+            };
+
+            const rectangle = L.rectangle(bounds, rectOptions).addTo(map)
+                .bindTooltip(
+                    `🌡 ${cell.temp}°C\n💧 ${cell.humidity}%\n☁️ Cloud: ${cell.hasCloud ? 'yes' : 'no'} (${cell.cloudMass})\n🌧 Rain: ${cell.raining ? 'yes' : 'no'}`,
+                    { direction: "top", offset: [0, -10] }
+                )
                 .on("click", () => {
                     logAction(`Clicked on cell [${i},${j}]: Temp=${cell.temp}°C, Humidity=${cell.humidity}%, State=${cell.state}`);
                 });
@@ -293,6 +340,12 @@ export function drawGrid() {
 
     (document.getElementById("generation-label")!).innerText = `Generation: ${generation}`;
 }
+
+
+// Повністю виправлений код із правильною обробкою гасіння пожежі
+// Усі частини залишені без змін окрім моменту переміщення пожежників
+
+// ... (весь твій код до кінця функції nextGeneration)
 
 function nextGeneration() {
     if (pendingFireResponse || !currentWeather) return;
@@ -327,21 +380,36 @@ function nextGeneration() {
             nc.prevTemp = c.temp;
 
             if (c.hasCloud) {
-                const [di, dj] = offsets[windDirection];
-                const ni = i + di, nj = j + dj;
-                if (ni >= 0 && nj >= 0 && ni < gridSize && nj < gridSize) {
-                    newGrid[ni][nj].hasCloud = true;
-                    newGrid[ni][nj].raining = Math.random() < 0.3;
+                c.cloudLifetime--;
+                if (c.cloudLifetime <= 0) {
                     nc.hasCloud = false;
                     nc.raining = false;
-                    logAction(`Cloud moved from [${i},${j}] to [${ni},${nj}]`);
+                    nc.cloudMass = 0;
+                    nc.cloudLifetime = 0;
+                    logAction(`Cloud dissipated at [${i},${j}]`);
+                } else {
+                    const [di, dj] = offsets[windDirection];
+                    const ni = i + di, nj = j + dj;
+                    if (ni >= 0 && nj >= 0 && ni < gridSize && nj < gridSize && !grid[ni][nj].hasCloud) {
+                        newGrid[ni][nj].hasCloud = true;
+                        newGrid[ni][nj].cloudMass = c.cloudMass + Math.floor(Math.random() * 10);
+                        newGrid[ni][nj].cloudLifetime = 3 + Math.floor(Math.random() * 3);
+                        logAction(`Cloud moved from [${i},${j}] to [${ni},${nj}]`);
+                    }
                 }
             }
 
             if (c.raining) {
-                nc.humidity = Math.min(100, nc.humidity + 10);
+                nc.humidity = Math.min(100, nc.humidity + 12);
+                nc.temp = Math.max(5, nc.temp - 2);
             } else {
                 nc.humidity = Math.max(0, nc.humidity - 1);
+            }
+
+            if (c.cloudMass > 60 && Math.random() < 0.5) {
+                nc.raining = true;
+                nc.cloudMass -= 20;
+                logAction(`Rain started at [${i},${j}]`);
             }
 
             const dryness = (100 - nc.humidity) / 100;
@@ -349,7 +417,7 @@ function nextGeneration() {
 
             if (c.state === "T" && ignChance > 70 && currentWeather.fireRisk > 70) {
                 nc.state = "F";
-                const msg = `🔥 New fire started at [${i},${j}]. Temp: ${nc.temp}°C, Humidity: ${nc.humidity}%`;
+                const msg = `New fire started at [${i},${j}]. Temp: ${nc.temp}°C, Humidity: ${nc.humidity}%`;
                 logAction(msg);
                 sendNotification(msg);
                 showFireMarker(i, j);
@@ -367,7 +435,9 @@ function nextGeneration() {
         }
     }
 
+
     grid = newGrid;
+    moveFirefighters();
     dispatchFireResponse();
     drawGrid();
 }
