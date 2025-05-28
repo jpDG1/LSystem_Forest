@@ -30,3 +30,14 @@ button:hover {
     pointer-events: none;
     z-index: 1000;
 }
+.veg-pine {
+    fill: #558B2F !important;
+}
+
+.veg-oak {
+    fill: #6D4C41 !important;
+}
+
+.veg-grass {
+    fill: #9CCC65 !important;
+}

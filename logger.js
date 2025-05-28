@@ -15,7 +15,7 @@ const logToFile = (text) => {
     const now = new Date().toLocaleTimeString("uk-UA");
     const line = `[${now}] ${text}\n`;
     fs.appendFile("fire-log.txt", line, (err) => {
-        if (err) console.error("❗ Failed to write to file", err);
+        if (err) console.error("Failed to write to file", err);
     });
 };
 
@@ -64,7 +64,7 @@ app.post("/request-fire-response", (req, res) => {
 
     currentFire = { i, j };
     waitingForResponse = true;
-    const text = `🔥 Fire at [${i}, ${j}] — awaiting response (Y/N)`;
+    const text = `Fire at [${i}, ${j}] — awaiting response (Y/N)`;
     styledLog(text);
     logToFile(text);
 
@@ -87,11 +87,11 @@ app.post("/fire-response", (req, res) => {
     let msg = "";
 
     if (response === "Y") {
-        msg = `🚒 Firetruck dispatched to [${i},${j}] ✅`;
+        msg = ` Firetruck dispatched to [${i},${j}] `;
     } else if (response === "N") {
-        msg = `❌ No action taken for fire at [${i},${j}]`;
+        msg = ` No action taken for fire at [${i},${j}]`;
     } else {
-        msg = `❓ Unknown response for fire at [${i},${j}]`;
+        msg = ` Unknown response for fire at [${i},${j}]`;
     }
 
     styledLog(msg);
@@ -116,7 +116,7 @@ rl.on("line", (input) => {
     if (answer === "Y" || answer === "N") {
         axios.post("http://localhost:3001/fire-response", { i, j, response: answer })
             .catch(() => {
-                styledLog("❗ Failed to send fire response to local handler.");
+                styledLog("Failed to send fire response to local handler.");
             });
     }
 });
